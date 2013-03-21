@@ -16,3 +16,7 @@ CONTACT INFORMATION:
 
 BRIAN OSBORNE
 brian@bkosborne.com
+
+UPDATED TO USE DIV Elements
+CHRIS SONGER
+csonger@gmail.com

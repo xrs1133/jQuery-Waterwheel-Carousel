@@ -32,7 +32,8 @@
     function initializeCarouselData() {
       data = {
         itemsContainer:         $(carousel),
-        totalItems:             $(carousel).find('img').length,
+        itemSelector:           carousel.selector + "-item",
+        totalItems:             determineItemsType($(carousel)).length,
         containerWidth:         $(carousel).width(),
         containerHeight:        $(carousel).height(),
         currentCenterItem:      null,
@@ -49,7 +50,28 @@
         rightItemsCount:        0,
         performingSetup:        true
       };
-      data.itemsContainer.find('img').removeClass(options.activeClassName);
+      if(options.carouselItemContent == 'div'){
+        // console.log()
+        $(data.itemSelector).removeClass(options.activeClassName);
+      }else{
+        data.itemsContainer.find('img').removeClass(options.activeClassName);
+      }
+    }
+
+    function determineItemsType(carousel_obj){
+      if(options.carouselItemContent == 'div'){
+        return $(carousel_obj).children();
+      }else{
+        return $(carousel_obj).find('img');
+      }
+    }
+
+    function imageSource(item){
+      if(options.carouselItemContent == 'div'){
+        return $(item + " img");
+      }else{
+        return item;
+      }
     }
 
     /**
@@ -86,12 +108,19 @@
         return;
       }
 
-      var $imageElements = data.itemsContainer.find('img'), loadedImages = 0, totalImages = $imageElements.length;
+      var $imageElements = determineItemsType(data.itemsContainer), loadedImages = 0, totalImages = $imageElements.length;
 
       $imageElements.each(function () {
-        $(this).bind('load', function () {
+        if(options.carouselItemContent == 'div'){
+          var image = $(this).children('.item-content').children('img');
+        }else{
+          var image = $(this);
+        }
+
+        image.bind('load', function () {
           // Add to number of images loaded and see if they are all done yet
           loadedImages += 1;
+
           if (loadedImages === totalImages) {
             // All done, perform callback
             callback();
@@ -100,11 +129,10 @@
         });
         // May need to manually reset the src to get the load event to fire
         // http://stackoverflow.com/questions/7137737/ie9-problems-with-jquery-load-event-not-firing
-        $(this).attr('src', $(this).attr('src'));
-
+        image.attr('src', image.attr('src'));
         // If browser has cached the images, it may not call trigger a load. Detect this and do it ourselves
         if (this.complete) {
-          $(this).trigger('load');
+          image.trigger('load');
         }
       });
     }
@@ -115,7 +143,7 @@
      * original dimensions.
      */
     function setOriginalItemDimensions() {
-      data.itemsContainer.find('img').each(function () {
+      determineItemsType(data.itemsContainer).each(function () {
         if ($(this).data('original_width') == undefined || options.forcedImageWidth > 0) {
           $(this).data('original_width', $(this).width());
         }
@@ -133,7 +161,7 @@
      */
     function forceImageDimensionsIfEnabled() {
       if (options.forcedImageWidth && options.forcedImageHeight) {
-        data.itemsContainer.find('img').each(function () {
+        determineItemsType(data.itemsContainer).each(function () {
           $(this).width(options.forcedImageWidth);
           $(this).height(options.forcedImageHeight);
         });
@@ -147,7 +175,11 @@
      */
     function preCalculatePositionProperties() {
       // The 0 index is the center item in the carousel
-      var $firstItem = data.itemsContainer.find('img:first');
+      if(options.carouselItemContent == 'div'){
+        var $firstItem = determineItemsType(data.itemsContainer).first()
+      }else{
+        var $firstItem = data.itemsContainer.find('img:first');
+      }
 
       data.calculations[0] = {
         distance: 0,
@@ -192,7 +224,7 @@
      */
     function setupCarousel() {
       // Fill in a data array with jQuery objects of all the images
-      data.items = data.itemsContainer.find('img');
+      data.items = determineItemsType(data.itemsContainer);
       for (var i = 0; i < data.totalItems; i++) {
         data.items[i] = $(data.items[i]);
       }
@@ -207,10 +239,13 @@
       }
 
       // Default all the items to the center position
-      data.itemsContainer
-        .css('position','relative')
-        .find('img')
-          .each(function () {
+      if(options.carouselItemContent == 'div'){
+        var container = data.itemsContainer.css('position','relative').children();
+      }else{
+        var container = data.itemsContainer.css('position','relative').find('img');
+      }
+
+        container.each(function () {
             // Figure out where the top and left positions for center should be
             var centerPosLeft, centerPosTop;
             if (options.orientation === 'horizontal') {
@@ -297,9 +332,20 @@
         var calculations = data.calculations[options.flankingItems + 1];
       }
 
-      var distanceFactor = Math.pow(options.sizeMultiplier, newDistanceFromCenter)
+      if(options.singleSizeDifference){
+        if(newDistanceFromCenter > 1){
+          var distanceFactor = Math.pow(options.sizeMultiplier, 1)
+        }else{
+          var distanceFactor = Math.pow(options.sizeMultiplier, newDistanceFromCenter)
+        }
+      }else{
+        var distanceFactor = Math.pow(options.sizeMultiplier, newDistanceFromCenter)
+      }
+
+
       var newWidth = distanceFactor * $item.data('original_width');
       var newHeight = distanceFactor * $item.data('original_height');
+
       var widthDifference = Math.abs($item.width() - newWidth);
       var heightDifference = Math.abs($item.height() - newHeight);
 
@@ -328,7 +374,6 @@
 
       // Depth will be reverse distance from center
       var newDepth = options.flankingItems + 2 - newDistanceFromCenter;
-
       $item.data('width',newWidth);
       $item.data('height',newHeight);
       $item.data('top',newTop);
@@ -343,7 +388,6 @@
       // or in the first position just outside either boundary
       if (Math.abs(newPosition) <= options.flankingItems + 1) {
         performCalculations($item, newPosition);
-
         data.itemsAnimating++;
 
         $item
@@ -385,9 +429,7 @@
      */
     function itemAnimationComplete($item, newPosition) {
       data.itemsAnimating--;
-
       $item.data('currentPosition', newPosition);
-
       // Keep track of what items came and left the center position,
       // so we can fire callbacks when all the rotations are completed
       if (newPosition === 0) {
@@ -437,7 +479,7 @@
         data.currentlyMoving = true;
         data.itemsAnimating = 0;
         data.carouselRotationsLeft += rotations;
-        
+
         if (options.quickerForFurther === true) {
           // Figure out how fast the carousel should rotate
           if (rotations > 1) {
@@ -467,7 +509,7 @@
             // when we have an item switch sides. The right side will always have 1 more in that case
             if (data.totalItems % 2 == 0) {
               newPosition += 1;
-            } 
+            }
           }
 
           moveItem($item, newPosition);
@@ -481,7 +523,7 @@
      * to get the clicked item to the center, or will fire the custom event
      * the user passed in if the center item is clicked
      */
-    $(this).find('img').bind("click", function () {
+    $(this).children().bind("click", function () {
       var itemPosition = $(this).data().currentPosition;
 
       // Don't allow hidden items to be clicked
@@ -498,7 +540,7 @@
       // Remove autoplay
       autoPlay(true);
       options.autoPlay = 0;
-      
+
       var rotations = Math.abs(itemPosition);
       if (itemPosition == 0) {
         options.clickedCenter($(this));
@@ -568,7 +610,7 @@
 
       rotateCarousel(1);
     }
-    
+
     /**
      * Navigation with arrow keys
      */
@@ -606,19 +648,18 @@
         var combineDefaultWith = {};
       }
       options = $.extend({}, $.fn.waterwheelCarousel.defaults, newOptions);
-
       initializeCarouselData();
-      data.itemsContainer.find('img').hide();
+      determineItemsType(data.itemsContainer).hide();
       forceImageDimensionsIfEnabled();
-
       preload(function () {
         setOriginalItemDimensions();
         preCalculatePositionProperties();
         setupCarousel();
         setupStarterRotation();
       });
+
     }
-    
+
     this.next = function() {
       autoPlay(true);
       options.autoPlay = 0;
@@ -647,14 +688,14 @@
     sizeMultiplier:             0.7, // determines how drastically the size of each item changes
     opacityMultiplier:          0.8, // determines how drastically the opacity of each item changes
     horizon:                    0,   // how "far in" the horizontal/vertical horizon should be set from the container wall. 0 for auto
-    flankingItems:              3,   // the number of items visible on either side of the center                  
+    flankingItems:              3,   // the number of items visible on either side of the center
 
     // animation
     speed:                      300,      // speed in milliseconds it will take to rotate from one to the next
     animationEasing:            'linear', // the easing effect to use when animating
     quickerForFurther:          true,     // set to true to make animations faster when clicking an item that is far away from the center
     edgeFadeEnabled:            false,    // when true, items fade off into nothingness when reaching the edge. false to have them move behind the center image
-    
+
     // misc
     linkHandling:               2,                 // 1 to disable all (used for facebox), 2 to disable all but center (to link images out)
     autoPlay:                   0,                 // indicate the speed in milliseconds to wait before autorotating. 0 to turn off. Can be negative
@@ -662,9 +703,9 @@
     activeClassName:            'carousel-center', // the name of the class given to the current item in the center
     keyboardNav:                false,             // set to true to move the carousel with the arrow keys
     keyboardNavOverride:        true,              // set to true to override the normal functionality of the arrow keys (prevents scrolling)
- 
+
     // preloader
-    preloadImages:              true,  // disable/enable the image preloader. 
+    preloadImages:              true,  // disable/enable the image preloader.
     forcedImageWidth:           0,     // specify width of all images; otherwise the carousel tries to calculate it
     forcedImageHeight:          0,     // specify height of all images; otherwise the carousel tries to calculate it
 
@@ -673,7 +714,9 @@
     movedToCenter:              $.noop, // fired when an item has finished moving to the center
     clickedCenter:              $.noop, // fired when the center item has been clicked
     movingFromCenter:           $.noop, // fired when an item is about to leave the center position
-    movedFromCenter:            $.noop  // fired when an item has finished moving from the center
+    movedFromCenter:            $.noop,  // fired when an item has finished moving from the center
+    singleSizeDifference:       false,
+    itemContent:                'img',
   };
 
 })(jQuery);

@@ -1,4 +1,11 @@
 =================================
+Version 2.2.1 - Mar 2013
+=================================
+- Added two new paramaters [singleSizeDifference, carouselItemContent]
+- Now can handle div elements as carousel items
+- Can create a single falloff after main content is presented.
+
+=================================
 Version 2.2.0 - Mar 2013
 =================================
 - Adjusted legal header a bit, also include legal header in minified version
